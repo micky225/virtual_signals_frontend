@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Menu, MessageCircle, Play, ShieldCheck, Sparkles, Star, Upload, X, Zap } from 'lucide-react'
 import { loginAccount, registerAccount, submitPayment } from '@/lib/api'
+import { useToast } from '@/components/app-toast'
+import { PasswordField } from '@/components/password-field'
 import { CountryModal, emptyProof, FlowInput, PaymentStep, StatusStep, type PaymentCountry, type PaymentProof } from '@/components/payment-flow'
 
 const tickerItems = ['NAP vs ARS  —  Won GHS 1,355.95', 'HDH vs SCF  —  Won GHS 848.11', 'BHA vs EVE  —  Won GHS 620.00', 'CRY vs BRE  —  Won GHS 400.00']
@@ -30,6 +32,7 @@ function AuthModal({ mode, onClose }: { mode: 'login' | 'signup'; onClose: () =>
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
+  const notify = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -40,18 +43,22 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     setError('')
     try {
       await loginAccount(email, password)
+      notify({ title: 'Welcome back', message: 'You are signed in. Opening your dashboard.' })
       router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed.')
+      const message = err instanceof Error ? err.message : 'Login failed.'
+      setError(message)
+      notify({ title: 'Login failed', message, tone: 'error' })
     } finally {
       setBusy(false)
     }
   }
-  return <div className="modal-backdrop" role="presentation" onClick={onClose}><section className="auth-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18}/></button><div className="section-label">INSTANT VIRTUALS</div><h2>WELCOME<br/><em>BACK.</em></h2><p>Log in to continue to your predictions.</p><label>EMAIL ADDRESS<input type="email" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>PASSWORD<input type="password" placeholder="••••••••" value={password} onChange={(event) => setPassword(event.target.value)} /></label><p className="flow-error">{error}</p><button className="button button-primary auth-submit" disabled={busy} onClick={login}>{busy ? 'LOGGING IN…' : 'LOG IN'} <ArrowRight size={15}/></button></section></div>
+  return <div className="modal-backdrop" role="presentation" onClick={onClose}><section className="auth-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18}/></button><div className="section-label">INSTANT VIRTUALS</div><h2>WELCOME<br/><em>BACK.</em></h2><p>Log in to continue to your predictions.</p><label>EMAIL ADDRESS<input type="email" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></label><PasswordField label="PASSWORD" value={password} onChange={(event) => setPassword(event.target.value)} /><p className="flow-error">{error}</p><button className="button button-primary auth-submit" disabled={busy} onClick={login}>{busy ? 'LOGGING IN…' : 'LOG IN'} <ArrowRight size={15}/></button></section></div>
 }
 
 function SignupFlow({ onClose }: { onClose: () => void }) {
   const router = useRouter()
+  const notify = useToast()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '', referral: '' })
   const [proof, setProof] = useState<PaymentProof>(emptyProof())
@@ -68,9 +75,12 @@ function SignupFlow({ onClose }: { onClose: () => void }) {
     setError('')
     try {
       await registerAccount({ name: form.name, email: form.email, phone: form.phone, password: form.password, referral: form.referral })
+      notify({ title: 'Account created', message: 'Continue to payment so an admin can confirm your access.' })
       setCountryOpen(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create account.')
+      const message = err instanceof Error ? err.message : 'Could not create account.'
+      setError(message)
+      notify({ title: 'Sign up failed', message, tone: 'error' })
     } finally {
       setBusy(false)
     }
@@ -89,15 +99,18 @@ function SignupFlow({ onClose }: { onClose: () => void }) {
         paidFrom: proof.paidFrom,
         screenshot: proof.upload,
       })
+      notify({ title: 'Payment submitted', message: 'Please wait. An admin will confirm this before you get access.', tone: 'info' })
       setStep(3)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not submit payment.')
+      const message = err instanceof Error ? err.message : 'Could not submit payment.'
+      setError(message)
+      notify({ title: 'Payment not sent', message, tone: 'error' })
     } finally {
       setBusy(false)
     }
   }
   const goToDashboard = useCallback(() => { router.push('/dashboard') }, [router])
-  return <div className="modal-backdrop" role="presentation"><section className="signup-flow" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><div className="flow-top"><span>STEP {step} OF 4</span><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18}/></button></div>{step === 1 && <><h2>CREATE YOUR<br/><em>ACCOUNT</em></h2><p>Sign up to access winning predictions.</p><div className="fee-card"><strong>GHS50</strong><span>≈ $3.85 USD · Registration Fee</span></div><FlowInput label="FULL NAME" value={form.name} onChange={update('name')} placeholder="Your full name"/><FlowInput label="EMAIL ADDRESS" value={form.email} onChange={update('email')} placeholder="you@example.com" type="email"/><FlowInput label="PHONE NUMBER" value={form.phone} onChange={update('phone')} placeholder="0243461892"/><FlowInput label="PASSWORD" value={form.password} onChange={update('password')} placeholder="••••••••" type="password"/><FlowInput label="CONFIRM PASSWORD" value={form.confirm} onChange={update('confirm')} placeholder="••••••••" type="password"/><FlowInput label="REFERRAL CODE (OPTIONAL)" value={form.referral} onChange={update('referral')} placeholder="e.g. IV-XXXX"/><p className="flow-error">{error}</p><button className="button button-primary auth-submit" disabled={busy} onClick={next}>{busy ? 'CREATING ACCOUNT…' : 'CONTINUE TO PAYMENT'} <ArrowRight size={15}/></button></>}{step === 2 && <><PaymentStep country={country} onCopy={copy} copied={copied} proof={proof} setProof={setProof} onBack={() => setCountryOpen(true)} onSubmit={submitPay} /><p className="flow-error">{error}</p></>}{step === 3 && <StatusStep country={country} proof={proof} onReset={() => { setProof(emptyProof()); setStep(2) }} onContinue={goToDashboard} continueLabel="WAIT FOR CONFIRMATION" notice="Please wait for an admin to confirm your payment. You will get access only after approval." />}</section>{countryOpen && <CountryModal email={form.email} onClose={() => setCountryOpen(false)} onChoose={chooseCountry} />}</div>
+  return <div className="modal-backdrop" role="presentation"><section className="signup-flow" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><div className="flow-top"><span>STEP {step} OF 4</span><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18}/></button></div>{step === 1 && <><h2>CREATE YOUR<br/><em>ACCOUNT</em></h2><p>Sign up to access winning predictions.</p><div className="fee-card"><strong>GHS50</strong><span>≈ $3.85 USD · Registration Fee</span></div><FlowInput label="FULL NAME" value={form.name} onChange={update('name')} placeholder="Your full name"/><FlowInput label="EMAIL ADDRESS" value={form.email} onChange={update('email')} placeholder="you@example.com" type="email"/><FlowInput label="PHONE NUMBER" value={form.phone} onChange={update('phone')} placeholder="0243461892"/><PasswordField label="PASSWORD" value={form.password} onChange={update('password')} autoComplete="new-password"/><PasswordField label="CONFIRM PASSWORD" value={form.confirm} onChange={update('confirm')} autoComplete="new-password"/><FlowInput label="REFERRAL CODE (OPTIONAL)" value={form.referral} onChange={update('referral')} placeholder="e.g. IV-XXXX"/><p className="flow-error">{error}</p><button className="button button-primary auth-submit" disabled={busy} onClick={next}>{busy ? 'CREATING ACCOUNT…' : 'CONTINUE TO PAYMENT'} <ArrowRight size={15}/></button></>}{step === 2 && <><PaymentStep country={country} onCopy={copy} copied={copied} proof={proof} setProof={setProof} onBack={() => setCountryOpen(true)} onSubmit={submitPay} /><p className="flow-error">{error}</p></>}{step === 3 && <StatusStep country={country} proof={proof} onReset={() => { setProof(emptyProof()); setStep(2) }} onContinue={goToDashboard} continueLabel="WAIT FOR CONFIRMATION" notice="Please wait for an admin to confirm your payment. You will get access only after approval." />}</section>{countryOpen && <CountryModal email={form.email} onClose={() => setCountryOpen(false)} onChoose={chooseCountry} />}</div>
 }
 
 export function Ticker() { return <div className="ticker" aria-label="Recent wins"><div className="ticker-track">{[...tickerItems, ...tickerItems].map((item, i) => <span key={i}><span className="ticker-dot">●</span>{item}</span>)}</div></div> }

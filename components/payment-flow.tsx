@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ArrowRight, Check, ChevronRight, Clock3, CloudUpload, TriangleAlert, X } from 'lucide-react'
 import { submitPayment, type PaymentKind } from '@/lib/api'
+import { useToast } from '@/components/app-toast'
 
 export type PaymentCountry = 'ghana' | 'nigeria' | 'other'
 export type PaymentProof = { transactionId: string; senderName: string; paidFrom: string; file: string; upload: File | null }
@@ -100,6 +101,7 @@ export function StatusStep({ country, proof, onReset, onContinue, continueLabel 
 }
 
 export function PredictionPaymentModal({ email, kind, onClose, onSubmitted }: { email: string; kind: PaymentKind; onClose: () => void; onSubmitted: () => void }) {
+  const notify = useToast()
   const [step, setStep] = useState(2)
   const [proof, setProof] = useState<PaymentProof>(emptyProof())
   const [copied, setCopied] = useState('')
@@ -124,7 +126,9 @@ export function PredictionPaymentModal({ email, kind, onClose, onSubmitted }: { 
         screenshot: proof.upload,
       })
       setStep(3)
+      notify({ title: 'Payment submitted', message: 'Please wait. An admin will confirm this before access or diamonds are granted.', tone: 'info' })
     } catch (err) {
+      notify({ title: 'Payment not sent', message: err instanceof Error ? err.message : 'Could not submit payment.', tone: 'error' })
       setError(err instanceof Error ? err.message : 'Could not submit payment.')
     } finally {
       setBusy(false)

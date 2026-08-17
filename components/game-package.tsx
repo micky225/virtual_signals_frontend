@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Clock3, FileScan, Gem, ImagePlus, LoaderCircle, Lock, ScanLine, Sparkles, Trash2, Upload, Zap } from 'lucide-react'
 import { PredictionPaymentModal } from '@/components/payment-flow'
 import { clearPredictions, fetchMe, fetchPredictions, readUser, runPrediction, type GameKey, type HistoryItem, type MatchPick, type SessionUser, type SignalPick } from '@/lib/api'
+import { useToast } from '@/components/app-toast'
 import { teamMark, teamTone } from '@/lib/predictions'
 
 const PREDICTION_COST = 50
@@ -45,8 +46,8 @@ export default function GamePackage({ game }: { game: GameKey }) {
   const [error, setError] = useState('')
   const [payOpen, setPayOpen] = useState(false)
   const [waitNote, setWaitNote] = useState('')
-  const [toast, setToast] = useState(false)
   const [current, setCurrent] = useState<HistoryItem | null>(null)
+  const notify = useToast()
 
   const meta = copy[game]
   const diamonds = me?.diamonds || 0
@@ -111,7 +112,12 @@ export default function GamePackage({ game }: { game: GameKey }) {
 
   const analyze = async () => {
     if (!file) return setError('Select or paste a screenshot first.')
-    if ((diamonds || 0) < PREDICTION_COST) return setError('Not enough diamonds. Buy a package to continue.')
+    if ((diamonds || 0) < PREDICTION_COST) {
+      const message = 'Not enough diamonds. Buy a package to continue.'
+      setError(message)
+      notify({ title: 'Not enough diamonds', message, tone: 'error' })
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -127,11 +133,15 @@ export default function GamePackage({ game }: { game: GameKey }) {
       setMe((current) => current ? { ...current, diamonds: data.diamonds } : current)
       setHistory((rows) => [item, ...rows])
       setCurrent(item)
-      setToast(true)
+      notify({
+        title: 'Predictions ready',
+        message: <>{PREDICTION_COST} <Diamond size={11} /> deducted from your wallet.</>,
+      })
       setView('results')
-      window.setTimeout(() => setToast(false), 4200)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Prediction failed.')
+      const message = error instanceof Error ? error.message : 'Prediction failed.'
+      setError(message)
+      notify({ title: 'Prediction failed', message, tone: 'error' })
     } finally {
       setBusy(false)
     }
@@ -139,7 +149,6 @@ export default function GamePackage({ game }: { game: GameKey }) {
 
   const openHistory = (item: HistoryItem) => {
     setCurrent(item)
-    setToast(false)
     setView('results')
   }
 
@@ -209,7 +218,6 @@ export default function GamePackage({ game }: { game: GameKey }) {
         <Results
           game={game}
           how={meta.how}
-          toast={toast}
           current={current}
           history={history}
           onClear={async () => { await clearPredictions(game); setHistory([]); setCurrent(null) }}
@@ -225,6 +233,7 @@ export default function GamePackage({ game }: { game: GameKey }) {
           onSubmitted={() => {
             setPayOpen(false)
             setWaitNote('Diamond top-up submitted. Please wait for an admin to confirm it before diamonds are added.')
+            notify({ title: 'Payment submitted', message: 'Admin will add diamonds after confirming this payment.', tone: 'info' })
           }}
         />
       )}
@@ -235,7 +244,6 @@ export default function GamePackage({ game }: { game: GameKey }) {
 function Results({
   game,
   how,
-  toast,
   current,
   history,
   onClear,
@@ -243,7 +251,6 @@ function Results({
 }: {
   game: GameKey
   how: readonly string[]
-  toast: boolean
   current: HistoryItem | null
   history: HistoryItem[]
   onClear: () => void
@@ -255,16 +262,6 @@ function Results({
 
   return (
     <>
-      {toast && (
-        <div className="pkg-toast">
-          <Check size={18} />
-          <div>
-            <b>Predictions ready</b>
-            <small>{PREDICTION_COST} <Diamond size={11} /> deducted from your wallet.</small>
-          </div>
-        </div>
-      )}
-
       <section className="pkg-how">
         <span>HOW IT WORKS</span>
         {how.map((step, index) => (
