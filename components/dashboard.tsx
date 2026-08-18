@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { ArrowUp, BarChart3, Clock3, Package, Send, Zap } from 'lucide-react'
+import { ArrowUp, BarChart3, Clock3, Package, Send, Shield, Zap } from 'lucide-react'
 import { fetchMe, firstName, initials, readUser, type GameKey, type PaymentKind, type SessionUser } from '@/lib/api'
 
 const PredictionPaymentModal = dynamic(
@@ -96,7 +96,14 @@ export default function Dashboard() {
           <span className="dash-logo"><Zap size={16} fill="currentColor" /></span>
           <strong>VITAULS<b>SIGNALS</b></strong>
         </div>
-        <span className="dash-avatar" aria-label="Account">{mark}</span>
+        <div className="dash-head-actions">
+          {me?.isAdmin && (
+            <button type="button" className="dash-admin" onClick={() => router.push('/dashboard/admin')}>
+              <Shield size={14} /> Admin
+            </button>
+          )}
+          <span className="dash-avatar" aria-label="Account">{mark}</span>
+        </div>
       </header>
 
       <h1>Welcome, <em>{name}</em></h1>

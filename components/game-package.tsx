@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Clock3, FileScan, Gem, ImagePlus, LoaderCircle, Lock, ScanLine, Sparkles, Trash2, Upload, Zap } from 'lucide-react'
+import { ArrowLeft, Clock3, FileScan, Gem, ImagePlus, LoaderCircle, Lock, ScanLine, Shield, Sparkles, Trash2, Upload, Zap } from 'lucide-react'
 import { clearPredictions, fetchMe, fetchPredictions, readUser, runPrediction, type GameKey, type HistoryItem, type MatchPick, type SessionUser, type SignalPick } from '@/lib/api'
 import { useToast } from '@/components/app-toast'
 import { teamMark, teamTone } from '@/lib/predictions'
@@ -204,7 +204,14 @@ export default function GamePackage({ game }: { game: GameKey }) {
           <strong>Upload VGames Screenshot</strong>
           <em>{meta.title}</em>
         </div>
-        <span className="pkg-chip"><Diamond /> {diamonds}</span>
+        <div className="pkg-head-actions">
+          {me.isAdmin && (
+            <button type="button" className="pkg-admin" onClick={() => router.push('/dashboard/admin')} aria-label="Admin dashboard">
+              <Shield size={14} />
+            </button>
+          )}
+          <span className="pkg-chip"><Diamond /> {diamonds}</span>
+        </div>
       </header>
 
       {view === 'upload' ? (

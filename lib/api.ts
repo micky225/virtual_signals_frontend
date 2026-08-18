@@ -13,6 +13,7 @@ export type SessionUser = {
   diamonds?: number
   unlocked?: Record<GameKey, boolean>
   pendingPayments?: { id: number; kind: string; status: string }[]
+  isAdmin?: boolean
 }
 
 export type MatchPick = { home: string; away: string; pick: string; confidence: number }
@@ -179,4 +180,77 @@ export async function fetchPredictions(game: GameKey) {
 
 export async function clearPredictions(game: GameKey) {
   return api(`/api/predictions/${game}/`, { method: 'DELETE' })
+}
+
+export type AdminPaymentStatus = 'pending' | 'approved' | 'rejected' | 'all'
+
+export type AdminPayment = {
+  id: number
+  kind: PaymentKind
+  country: string
+  amount: string
+  transaction_id: string
+  sender_name: string
+  paid_from: string
+  status: 'pending' | 'approved' | 'rejected'
+  admin_note: string
+  created_at: string
+  userName: string
+  userEmail: string
+  userPhone: string
+  diamonds: number
+  registrationApproved: boolean
+  footballUnlocked: boolean
+  bottleUnlocked: boolean
+}
+
+export type AdminCounts = {
+  pending: number
+  approved: number
+  rejected: number
+  users: number
+}
+
+export type AdminUserRow = {
+  id: number
+  name: string
+  email: string
+  phone: string
+  diamonds: number
+  registrationApproved: boolean
+  footballUnlocked: boolean
+  bottleUnlocked: boolean
+  pendingPayments: number
+  joined: string
+}
+
+export async function fetchAdminPayments(status: AdminPaymentStatus = 'pending', query = '') {
+  const params = new URLSearchParams()
+  params.set('status', status)
+  if (query.trim()) params.set('q', query.trim())
+  return api(`/api/admin/payments/?${params}`) as Promise<{
+    counts: AdminCounts
+    payments: AdminPayment[]
+  }>
+}
+
+export async function reviewAdminPayment(id: number, action: 'approve' | 'reject', note = '') {
+  return api(`/api/admin/payments/${id}/`, {
+    method: 'POST',
+    body: JSON.stringify({ action, note }),
+  }) as Promise<AdminPayment>
+}
+
+export async function fetchAdminUsers(query = '') {
+  const suffix = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''
+  return api(`/api/admin/users/${suffix}`) as Promise<AdminUserRow[]>
+}
+
+export async function fetchAdminScreenshot(id: number) {
+  const auth = token()
+  const response = await fetch(`${API_URL}/api/admin/payments/${id}/screenshot/`, {
+    headers: auth ? { Authorization: `Token ${auth}` } : undefined,
+  })
+  if (!response.ok) throw new Error('Could not load payment screenshot.')
+  return response.blob()
 }

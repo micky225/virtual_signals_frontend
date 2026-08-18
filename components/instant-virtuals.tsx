@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Menu, MessageCircle, Play, ShieldCheck, Sparkles, Star, Upload, X, Zap } from 'lucide-react'
-import { loginAccount, registerAccount, submitPayment } from '@/lib/api'
+import { loginAccount, readUser, registerAccount, submitPayment } from '@/lib/api'
 import { useToast } from '@/components/app-toast'
 import { PasswordField } from '@/components/password-field'
 import { CountryModal, emptyProof, FlowInput, PaymentStep, StatusStep, type PaymentCountry, type PaymentProof } from '@/components/payment-flow'
@@ -21,8 +21,14 @@ const testimonials = [
 export function Header() {
   const [open, setOpen] = useState(false)
   const [auth, setAuth] = useState<'login' | 'signup' | null>(null)
-  useEffect(() => { const openSignup = () => setAuth('signup'); window.addEventListener('instant-signup', openSignup); return () => window.removeEventListener('instant-signup', openSignup) }, [])
-  return <><header className="site-header"><a className="brand" href="#top"><span className="brand-mark"><Zap size={17} fill="currentColor" /></span><span>VITAULS<span>SIGNALS</span></span></a><nav className={open ? 'nav open' : 'nav'}><a href="#how">How it works</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a></nav><div className="nav-actions"><button className="nav-login" onClick={() => setAuth('login')}>Log In</button><button className="nav-signup" onClick={() => setAuth('signup')}>Sign Up <ArrowRight size={15}/></button><button className="menu-button" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button></div></header>{auth && <AuthModal mode={auth} onClose={() => setAuth(null)} />}</>
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    setIsAdmin(Boolean(readUser()?.isAdmin))
+    const openSignup = () => setAuth('signup')
+    window.addEventListener('instant-signup', openSignup)
+    return () => window.removeEventListener('instant-signup', openSignup)
+  }, [])
+  return <><header className="site-header"><a className="brand" href="#top"><span className="brand-mark"><Zap size={17} fill="currentColor" /></span><span>VITAULS<span>SIGNALS</span></span></a><nav className={open ? 'nav open' : 'nav'}><a href="#how">How it works</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a></nav><div className="nav-actions">{isAdmin && <a className="nav-admin" href="/dashboard/admin">Admin</a>}<button className="nav-login" onClick={() => setAuth('login')}>Log In</button><button className="nav-signup" onClick={() => setAuth('signup')}>Sign Up <ArrowRight size={15}/></button><button className="menu-button" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button></div></header>{auth && <AuthModal mode={auth} onClose={() => setAuth(null)} />}</>
 }
 
 function AuthModal({ mode, onClose }: { mode: 'login' | 'signup'; onClose: () => void }) {
