@@ -30,14 +30,27 @@ function token() {
   return localStorage.getItem(TOKEN_KEY) || ''
 }
 
+let meInFlight: Promise<SessionUser> | null = null
+let meCache: { at: number; user: SessionUser } | null = null
+let meGeneration = 0
+const ME_TTL_MS = 5000
+
+export function invalidateMe() {
+  meCache = null
+  meInFlight = null
+  meGeneration += 1
+}
+
 export function saveSession(nextToken: string, user: SessionUser) {
   localStorage.setItem(TOKEN_KEY, nextToken)
   localStorage.setItem(USER_KEY, JSON.stringify(user))
+  meCache = { at: Date.now(), user }
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+  invalidateMe()
 }
 
 export function readUser(): SessionUser | null {
@@ -99,11 +112,24 @@ export async function loginAccount(email: string, password: string) {
   return data.user
 }
 
-export async function fetchMe() {
-  const user = await api('/api/auth/me/') as SessionUser
-  const current = readUser()
-  localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...user }))
-  return user
+export async function fetchMe(force = false) {
+  if (!force && meCache && Date.now() - meCache.at < ME_TTL_MS) return meCache.user
+  if (meInFlight) return meInFlight
+  const generation = meGeneration
+  const request = (async () => {
+    const user = await api('/api/auth/me/') as SessionUser
+    if (generation !== meGeneration) return user
+    const current = readUser()
+    localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...user }))
+    meCache = { at: Date.now(), user }
+    return user
+  })()
+  meInFlight = request
+  try {
+    return await request
+  } finally {
+    if (meInFlight === request) meInFlight = null
+  }
 }
 
 export async function submitPayment(input: {
@@ -121,6 +147,7 @@ export async function submitPayment(input: {
   body.append('sender_name', input.senderName)
   body.append('paid_from', input.paidFrom)
   body.append('screenshot', input.screenshot)
+  invalidateMe()
   return api('/api/payments/', { method: 'POST', body })
 }
 
@@ -128,6 +155,7 @@ export async function runPrediction(game: GameKey, image: File) {
   const body = new FormData()
   body.append('game', game)
   body.append('image', image)
+  invalidateMe()
   return api('/api/predictions/', { method: 'POST', body }) as Promise<{
     game: GameKey
     predictions: MatchPick[] | SignalPick[]
@@ -138,7 +166,7 @@ export async function runPrediction(game: GameKey, image: File) {
 }
 
 export async function fetchPredictions(game: GameKey) {
-  const rows = await api(`/api/predictions/?game=${game}`) as { id: number; game: GameKey; cost: number; payload: MatchPick[] | SignalPick[]; created_at: string }[]
+  const rows = await api(`/api/predictions/?game=${game}&limit=20`) as { id: number; game: GameKey; cost: number; payload: MatchPick[] | SignalPick[]; created_at: string }[]
   return rows.map((row) => ({
     id: String(row.id),
     game: row.game,

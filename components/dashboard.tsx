@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { ArrowUp, BarChart3, Clock3, Package, Send, Zap } from 'lucide-react'
 import { fetchMe, firstName, initials, readUser, type GameKey, type PaymentKind, type SessionUser } from '@/lib/api'
-import { PredictionPaymentModal } from '@/components/payment-flow'
+
+const PredictionPaymentModal = dynamic(
+  () => import('@/components/payment-flow').then((mod) => mod.PredictionPaymentModal),
+  { ssr: false },
+)
 
 const games = [
   {
@@ -35,23 +40,38 @@ export default function Dashboard() {
   const [payGame, setPayGame] = useState<PaymentKind | null>(null)
   const [waiting, setWaiting] = useState<string | null>(null)
 
-  const refresh = async () => {
+  const refresh = useCallback(async (force = false) => {
     try {
-      setMe(await fetchMe())
+      setMe(await fetchMe(force))
     } catch {
       router.push('/')
     }
-  }
+  }, [router])
+
+  const waitingOnAdmin = Boolean(me && (!me.registrationApproved || (me.pendingPayments || []).length > 0))
 
   useEffect(() => {
     refresh()
-    const timer = window.setInterval(refresh, 8000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [refresh])
+
+  useEffect(() => {
+    if (!waitingOnAdmin) return
+    const timer = window.setInterval(() => refresh(true), 30000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [waitingOnAdmin, refresh])
 
   const name = firstName(me?.name || me?.email?.split('@')[0] || 'there')
   const mark = initials(me?.name || '', me?.email || '')
-  const pendingKinds = new Set((me?.pendingPayments || []).map((item) => item.kind))
+  const pendingKinds = useMemo(() => new Set((me?.pendingPayments || []).map((item) => item.kind)), [me?.pendingPayments])
 
   const openGame = (key: GameKey) => {
     if (me?.unlocked?.[key]) {
@@ -112,7 +132,7 @@ export default function Dashboard() {
                   <p>{game.text}</p>
                 </div>
                 <div className="dash-visual">
-                  <img src={game.image} alt={game.alt} />
+                  <img src={game.image} alt={game.alt} loading="lazy" decoding="async" />
                 </div>
               </div>
               <button type="button" onClick={() => openGame(game.key)}>
@@ -132,7 +152,7 @@ export default function Dashboard() {
           onSubmitted={() => {
             setPayGame(null)
             setWaiting('Payment submitted. Please wait for an admin to confirm it before you get access.')
-            refresh()
+            refresh(true)
           }}
         />
       )}

@@ -32,13 +32,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const watch = async () => {
+    const watch = async (force = false) => {
       if (!window.localStorage.getItem(TOKEN_KEY)) {
         snapshot.current = null
         return
       }
       try {
-        const me = await fetchMe()
+        const me = await fetchMe(force)
         const before = snapshot.current
         snapshot.current = me
         if (!before) return
@@ -48,8 +48,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       }
     }
     watch()
-    const timer = window.setInterval(watch, 8000)
-    return () => window.clearInterval(timer)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') watch()
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(() => {
+      const pending = (snapshot.current?.pendingPayments || []).length > 0 || snapshot.current?.registrationApproved === false
+      if (pending) watch(true)
+    }, 30000)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [notify])
 
   return (

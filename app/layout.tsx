@@ -4,8 +4,8 @@ import { Geist, Space_Grotesk } from 'next/font/google'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
-const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
+const geist = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' })
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Vitauls Signals — AI-powered football predictions',

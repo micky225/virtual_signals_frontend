@@ -22,7 +22,7 @@ export function Header() {
   const [open, setOpen] = useState(false)
   const [auth, setAuth] = useState<'login' | 'signup' | null>(null)
   useEffect(() => { const openSignup = () => setAuth('signup'); window.addEventListener('instant-signup', openSignup); return () => window.removeEventListener('instant-signup', openSignup) }, [])
-  return <><header className="site-header"><a className="brand" href="#top"><span className="brand-mark"><Zap size={17} fill="currentColor" /></span><span>VITAULS<span>SIGNALS</span></span></a><nav className={open ? 'nav open' : 'nav'}><a href="#how">How it works</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a><button className="nav-login" onClick={() => setAuth('login')}>Log In</button><button className="nav-signup" onClick={() => setAuth('signup')}>Sign Up <ArrowRight size={15}/></button></nav><button className="menu-button" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button></header>{auth && <AuthModal mode={auth} onClose={() => setAuth(null)} />}</>
+  return <><header className="site-header"><a className="brand" href="#top"><span className="brand-mark"><Zap size={17} fill="currentColor" /></span><span>VITAULS<span>SIGNALS</span></span></a><nav className={open ? 'nav open' : 'nav'}><a href="#how">How it works</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a></nav><div className="nav-actions"><button className="nav-login" onClick={() => setAuth('login')}>Log In</button><button className="nav-signup" onClick={() => setAuth('signup')}>Sign Up <ArrowRight size={15}/></button><button className="menu-button" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button></div></header>{auth && <AuthModal mode={auth} onClose={() => setAuth(null)} />}</>
 }
 
 function AuthModal({ mode, onClose }: { mode: 'login' | 'signup'; onClose: () => void }) {
@@ -134,4 +134,11 @@ export function ChatWidget() { const [open, setOpen] = useState(false); return <
 
 export function FAQ() { return <section className="section faq" id="faq"><div><div className="section-label">QUESTIONS, ANSWERED</div><h2>Good to<br/><em>know.</em></h2></div><div className="faq-list"><details open><summary>What is Vitauls Signals?<ChevronDown/></summary><p>We use AI to analyze your SportyBet Instant Football screenshots and surface smarter picks.</p></details><details><summary>How does the prediction work?<ChevronDown/></summary><p>Upload a clear screenshot and our analysis highlights the strongest outcomes from your ticket.</p></details><details><summary>Is it free to get started?<ChevronDown/></summary><p>Yes. You can explore the platform and see how it works for free.</p></details></div></section> }
 
-export default function InstantVirtuals() { return <><Header/><Ticker/><main><Hero/><HowItWorks/><Reviews/><FAQ/><CTA/></main><Footer/><ChatWidget/></> }
+export default function InstantVirtuals() {
+  const [chatReady, setChatReady] = useState(false)
+  useEffect(() => {
+    const idle = window.setTimeout(() => setChatReady(true), 1200)
+    return () => window.clearTimeout(idle)
+  }, [])
+  return <><Header/><Ticker/><main><Hero/><HowItWorks/><Reviews/><FAQ/><CTA/></main><Footer/>{chatReady && <ChatWidget/>}</>
+}

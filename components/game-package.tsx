@@ -1,12 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, Clock3, FileScan, Gem, ImagePlus, LoaderCircle, Lock, ScanLine, Sparkles, Trash2, Upload, Zap } from 'lucide-react'
-import { PredictionPaymentModal } from '@/components/payment-flow'
+import { ArrowLeft, Clock3, FileScan, Gem, ImagePlus, LoaderCircle, Lock, ScanLine, Sparkles, Trash2, Upload, Zap } from 'lucide-react'
 import { clearPredictions, fetchMe, fetchPredictions, readUser, runPrediction, type GameKey, type HistoryItem, type MatchPick, type SessionUser, type SignalPick } from '@/lib/api'
 import { useToast } from '@/components/app-toast'
 import { teamMark, teamTone } from '@/lib/predictions'
+
+const PredictionPaymentModal = dynamic(
+  () => import('@/components/payment-flow').then((mod) => mod.PredictionPaymentModal),
+  { ssr: false },
+)
 
 const PREDICTION_COST = 50
 
@@ -33,11 +38,41 @@ function Diamond({ size = 14 }: { size?: number }) {
   return <Gem size={size} fill="currentColor" />
 }
 
+async function compactScreenshot(file: File) {
+  if (!file.type.startsWith('image/') || typeof createImageBitmap !== 'function') return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const max = 1280
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    if (scale === 1 && file.size < 450_000 && file.type === 'image/jpeg') {
+      bitmap.close()
+      return file
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      bitmap.close()
+      return file
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.72))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
 export default function GamePackage({ game }: { game: GameKey }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [email, setEmail] = useState('')
-  const [me, setMe] = useState<SessionUser | null>(null)
+  const [email, setEmail] = useState(() => readUser()?.email || '')
+  const [me, setMe] = useState<SessionUser | null>(() => readUser())
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState('')
@@ -52,22 +87,25 @@ export default function GamePackage({ game }: { game: GameKey }) {
   const meta = copy[game]
   const diamonds = me?.diamonds || 0
 
-  const takeFile = useCallback((next: File | null) => {
+  const takeFile = useCallback(async (next: File | null) => {
     if (!next) return
     if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(next.type)) return setError('Use a PNG, JPG, or JPEG screenshot.')
     if (next.size > 8 * 1024 * 1024) return setError('Screenshot must be 8MB or smaller.')
+    const compact = await compactScreenshot(next)
     setPreview((current) => {
       if (current) URL.revokeObjectURL(current)
-      return URL.createObjectURL(next)
+      return URL.createObjectURL(compact)
     })
     setError('')
-    setFile(next)
+    setFile(compact)
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     const load = async () => {
       try {
         const user = await fetchMe()
+        if (cancelled) return
         setEmail(user.email || readUser()?.email || '')
         setMe(user)
         if (!user.unlocked?.[game]) {
@@ -75,15 +113,17 @@ export default function GamePackage({ game }: { game: GameKey }) {
           return
         }
         try {
-          setHistory(await fetchPredictions(game))
+          const rows = await fetchPredictions(game)
+          if (!cancelled) setHistory(rows.slice(0, 20))
         } catch {
-          setHistory([])
+          if (!cancelled) setHistory([])
         }
       } catch {
-        router.replace('/')
+        if (!cancelled) router.replace('/')
       }
     }
     load()
+    return () => { cancelled = true }
   }, [game, router])
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
@@ -193,7 +233,7 @@ export default function GamePackage({ game }: { game: GameKey }) {
               takeFile(event.dataTransfer.files[0] || null)
             }}
           >
-            {preview ? <img src={preview} alt="Selected screenshot" /> : <div className="pkg-empty"><ImagePlus size={36} /><b>Drop or paste screenshot</b></div>}
+            {preview ? <img src={preview} alt="Selected screenshot" decoding="async" /> : <div className="pkg-empty"><ImagePlus size={36} /><b>Drop or paste screenshot</b></div>}
             <strong>{file ? 'Screenshot selected' : 'No screenshot yet'}</strong>
             <span>{file?.name || 'PNG, JPG, JPEG — max 8MB'}</span>
             <small>PNG, JPG, JPEG — max 8MB</small>
@@ -279,7 +319,7 @@ function Results({
         <h2 className="pkg-section">PREDICTION HISTORY ({history.length})</h2>
         <button type="button" onClick={onClear}><Trash2 size={13} /> Clear</button>
       </div>
-      {history.map((item) => (
+      {history.slice(0, 20).map((item) => (
         <button type="button" className="pkg-hist" key={item.id} onClick={() => onOpen(item)}>
           <Clock3 size={16} />
           <span>{new Date(item.at).toLocaleString()}</span>
