@@ -264,27 +264,21 @@ function PaymentCard({
 
 function ProofImage({ paymentId }: { paymentId: number }) {
   const [src, setSrc] = useState('')
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState('')
 
   useEffect(() => {
-    let url = ''
     let cancelled = false
     fetchAdminScreenshot(paymentId)
-      .then((blob) => {
-        if (cancelled) return
-        url = URL.createObjectURL(blob)
-        setSrc(url)
+      .then((url) => {
+        if (!cancelled) setSrc(url)
       })
-      .catch(() => {
-        if (!cancelled) setFailed(true)
+      .catch((err) => {
+        if (!cancelled) setFailed(err instanceof Error ? err.message : 'Screenshot could not be loaded.')
       })
-    return () => {
-      cancelled = true
-      if (url) URL.revokeObjectURL(url)
-    }
+    return () => { cancelled = true }
   }, [paymentId])
 
-  if (failed) return <p className="admin-empty">Screenshot could not be loaded.</p>
+  if (failed) return <p className="admin-empty">{failed}</p>
   if (!src) return <p className="admin-empty">Loading screenshot…</p>
   return <a className="admin-proof" href={src} target="_blank" rel="noreferrer"><img src={src} alt="Payment screenshot" /></a>
 }

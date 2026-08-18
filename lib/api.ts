@@ -247,10 +247,7 @@ export async function fetchAdminUsers(query = '') {
 }
 
 export async function fetchAdminScreenshot(id: number) {
-  const auth = token()
-  const response = await fetch(`${API_URL}/api/admin/payments/${id}/screenshot/`, {
-    headers: auth ? { Authorization: `Token ${auth}` } : undefined,
-  })
-  if (!response.ok) throw new Error('Could not load payment screenshot.')
-  return response.blob()
+  const data = await api(`/api/admin/payments/${id}/screenshot/`) as { mime?: string; image?: string }
+  if (!data?.image) throw new Error('Screenshot is missing.')
+  return `data:${data.mime || 'image/jpeg'};base64,${data.image}`
 }
