@@ -44,7 +44,7 @@ export function PaymentStep({ country, onCopy, copied, proof, setProof, onBack, 
         </ol>
       </> : <>
         <PaymentRow label="NETWORK" value="Telecel Ghana"/>
-        <PaymentRow label="MOBILE MONEY NUMBER" value="0508215810" copy={() => onCopy('0508215810','number')} copied={copied === 'number'}/>
+        <PaymentRow label="MOBILE MONEY NUMBER" value="0535999462" copy={() => onCopy('0535999462','number')} copied={copied === 'number'}/>
         <PaymentRow label="ACCOUNT NAME" value="GRACE AHIABLE"/>
         <PaymentRow label="AMOUNT" value="GHC50.00" copy={() => onCopy('50','amount')} copied={copied === 'amount'} highlight/>
         <ol>
